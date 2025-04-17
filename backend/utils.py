@@ -2,29 +2,44 @@ import os
 import json
 import oracledb
 from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 HISTORY_FILE = Path(os.environ.get("HISTORY_FILE_PATH", "harvest_history.json"))
 
-def extract_and_validate(payload):
-    try:
-        area = float(payload["area"])
-        production = float(payload["production"])
-        loss_percentage = float(payload["loss_percentage"])
-    except (KeyError, ValueError):
-        raise ValueError("Missing or invalid required fields.")
-      
-    duration_hours = float(payload.get("duration_hours", 1.0))
-    harvest_method = payload.get("harvest_method", "mechanical")
-    moisture_percentage = float(payload.get("moisture_percentage", 0.0))
-    
-    return {
-        "area": area,
-        "production": production,
-        "loss_percentage": loss_percentage,
-        "duration_hours": duration_hours,
-        "harvest_method": harvest_method,
-        "moisture_percentage": moisture_percentage
-    }
+def sugar_quality_insight(data):
+    alerts, recs = [], []
+    brix = data["brix_percentage"]
+    if brix < 12:
+        alerts.append(f"Low °Brix ({brix}): sugar yield may be sub‑optimal.")
+        recs.append("Consider delaying harvest until Brix ≥ 12.")
+    return alerts, recs
+
+def equipment_maintenance_insight(data):
+    alerts, recs = [], []
+    prod_hr = data["productivity_per_hour"]
+    if prod_hr < 200:
+        alerts.append(f"Low hourly productivity ({prod_hr} t/h).")
+        recs.append("Schedule preventive maintenance on equipment.")
+    return alerts, recs
+
+def operator_performance_insight(data):
+    alerts, recs = [], []
+    loss = data["loss_percentage"]
+    op = data["operator_id"]
+    if loss > 15:
+        alerts.append(f"Operator {op} exceeded loss threshold ({loss}%).")
+        recs.append("Recommend operator retraining or review procedure.")
+    return alerts, recs
+
+def temperature_moisture_insight(data):
+    alerts, recs = [], []
+    temp = data["ambient_temperature"]
+    moist = data["moisture_percentage"]
+    if temp > 35 and moist > 20:
+        alerts.append("High temp & moisture: risk of microbial spoilage.")
+        recs.append("Process cane quickly or lower moisture prior to storage.")
+    return alerts, recs
 
 
 def calculate_metrics(data):
@@ -39,21 +54,30 @@ def calculate_metrics(data):
         "productivity_per_hectare": round(productivity_per_hectare, 2)
     }
 
-
 def generate_advice(data):
-    alerts = []
-    recommendations = []
+    alerts, recs = [], []
+
     if data["loss_percentage"] > 10:
         alerts.append("Losses exceed the expected threshold (10%).")
-        recommendations.append("Check cutter bar pressure.")
+        recs.append("Check cutter bar pressure.")
     if data["moisture_percentage"] > 20 and data["harvest_method"] == "mechanical":
         alerts.append("High moisture level for mechanical harvesting.")
-        recommendations.append("Consider delaying harvest or using manual harvesting.")
+        recs.append("Consider delaying harvest or using manual harvesting.")
+
+    for fn in [
+        sugar_quality_insight,
+        equipment_maintenance_insight,
+        operator_performance_insight,
+        temperature_moisture_insight
+    ]:
+        a, r = fn(data)
+        alerts.extend(a)
+        recs.extend(r)
+
     return {
         "alert": " ".join(alerts),
-        "recommendation": " ".join(recommendations)
+        "recommendation": " ".join(recs)
     }
-
 
 def load_history():
     if HISTORY_FILE.exists():
@@ -67,7 +91,6 @@ def load_history():
             return []
     return []
 
-
 def save_history(history):
     try:
         HISTORY_FILE.write_text(json.dumps(history, indent=4), encoding="utf-8")
@@ -79,7 +102,6 @@ def append_record_json(record):
     history = load_history()
     history.append(record)
     save_history(history)
-
 
 def connect_oracle():
     user = os.environ.get("ORACLE_USER")
@@ -95,31 +117,40 @@ def connect_oracle():
 
     return oracledb.connect(user=user, password=password, dsn=dsn)
 
-
 def insert_record_oracle(connection, record):
-    sql_params = {
-        "area": record.get("area"),
-        "production": record.get("production"),
-        "loss_percentage": record.get("loss_percentage"),
-        "lost_tonnage": record.get("lost_tonnage"),
-        "net_production": record.get("net_production"),
-        "productivity_per_hour": record.get("productivity_per_hour"),
-        "productivity_per_hectare": record.get("productivity_per_hectare"),
-        "alert": record.get("alert"), # Added alert
-        "recommendation": record.get("recommendation") 
-    }
+    now_sp = datetime.now(ZoneInfo("America/Sao_Paulo"))
 
     sql = """
-    INSERT INTO harvest
-      (area, production, loss_percentage, lost_tonnage, net_production,
-       productivity_per_hour, productivity_per_hectare, alert, recommendation)
-    VALUES
-      (:area, :production, :loss_percentage, :lost_tonnage, :net_production,
-       :productivity_per_hour, :productivity_per_hectare, :alert, :recommendation)
+    INSERT INTO harvest (
+      area, production, loss_percentage,
+      lost_tonnage, net_production,
+      productivity_per_hour, productivity_per_hectare,
+      alert, recommendation,
+      created_at
+    ) VALUES (
+      :area, :production, :loss_percentage,
+      :lost_tonnage, :net_production,
+      :productivity_per_hour, :productivity_per_hectare,
+      :alert, :recommendation,
+      :created_at
+    )
     """
+    params = {
+        "area": record["area"],
+        "production": record["production"],
+        "loss_percentage": record["loss_percentage"],
+        "lost_tonnage": record["lost_tonnage"],
+        "net_production": record["net_production"],
+        "productivity_per_hour": record["productivity_per_hour"],
+        "productivity_per_hectare": record["productivity_per_hectare"],
+        "alert": record["alert"],
+        "recommendation": record["recommendation"],
+        "created_at": now_sp 
+    }
+
     cursor = connection.cursor()
     try:
-        cursor.execute(sql, sql_params)
+        cursor.execute(sql, params)
         connection.commit()
     finally:
-        cursor.close() 
+        cursor.close()
