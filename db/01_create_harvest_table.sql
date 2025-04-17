@@ -19,5 +19,5 @@ CREATE TABLE harvest_user.harvest (
   productivity_per_hectare NUMBER,
   alert VARCHAR2(4000),
   recommendation VARCHAR2(4000),
-  created_at DATE DEFAULT SYSDATE
+  created_at DATE DEFAULT NULL
 );
