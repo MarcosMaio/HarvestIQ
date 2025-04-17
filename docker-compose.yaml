@@ -1,0 +1,43 @@
+services:
+  db:
+    image: gvenzl/oracle-free
+    container_name: oracle-db
+    expose:
+      - 1521
+    environment:
+      ORACLE_PASSWORD: "Oracle123"
+    volumes:
+      - db-data:/opt/oracle/oradata
+      - ./db:/container-entrypoint-initdb.d
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "echo 'SELECT 1 FROM DUAL;' | sqlplus -S system/$$ORACLE_PASSWORD@//localhost:1521/FREEPDB1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  backend:
+    container_name: backend
+    build: ./backend
+    # platform: linux/amd64
+    command: python /app/app.py
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      ORACLE_HOST: "db"
+      ORACLE_PORT: "1521"
+      ORACLE_SERVICE_NAME: "FREEPDB1"
+      ORACLE_USER: "harvest_user"
+      ORACLE_PASSWORD: "harvest_pass"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
