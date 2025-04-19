@@ -65,7 +65,9 @@ volumes:
 
 **Component Diagram:**
 
-![HarvestIQ Component Architecture](architecture-design/images/component.png)
+<p align="center">
+  <img src="architecture-design/images/component.png" alt="HarvestIQ Component Architecture" />
+</p>
 
 ### Behind the Scenes
 
@@ -123,7 +125,9 @@ After a minute:
 
 **Use Case Diagram:**
 
-![HarvestIQ API Use Cases](architecture-design/images/use_case.png)
+<p align="center">
+  <img src="architecture-design/images/use_case.png" alt="HarvestIQ API Use Cases" />
+</p>
 
 ### 1. POST `/harvest`
 
@@ -131,7 +135,9 @@ Registers a new harvest record.
 
 **Sequence Diagram (POST /harvest):**
 
-![Sequence Diagram for POST /harvest](architecture-design/images/sequence_post.png)
+<p align="center">
+  <img src="architecture-design/images/sequence_post.png" alt="Sequence Diagram for POST /harvest" />
+</p>
 
 **Request Body** (`application/json`):
 
@@ -179,7 +185,9 @@ Retrieves all harvest records, sorted by most recent.
 
 **Sequence Diagram (GET /harvests):**
 
-![Sequence Diagram for GET /harvests](architecture-design/images/sequence_get.png)
+<p align="center">
+  <img src="architecture-design/images/sequence_get.png" alt="Sequence Diagram for GET /harvests" />
+</p>
 
 **Response** (`200 OK`):
 
@@ -206,8 +214,8 @@ Retrieves all harvest records, sorted by most recent.
 ## Core Components & Subalgorithms
 
 - **Models**: `HarvestPayload` (Pydantic) for strict input validation.
-- ``: computes loss tonnage, net yield, hourly & per‑ha productivity.
-- ``: aggregates rule‑based insights (loss thresholds, moisture, Brix, productivity, spoilage risk, operator/machine flags).
+- `calculate_metrics`: computes loss tonnage, net yield, hourly & per‑ha productivity.
+- `generate_advice`: aggregates rule‑based insights (loss thresholds, moisture, Brix, productivity, spoilage risk, operator/machine flags).
 - **File I/O**: `harvest_history.json` for local audit trail.
 - **Oracle Integration**: `connect_oracle` & `insert_record_oracle` using `oracledb` and Python‑generated timestamp (ZoneInfo).
 
