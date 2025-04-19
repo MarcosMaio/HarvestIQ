@@ -28,13 +28,14 @@ services:
     environment:
       ORACLE_PASSWORD: "Oracle123"
     volumes:
-      - db-data:/opt/oracle/oradata            # Persist database files
-      - ./db:/container-entrypoint-initdb.d    # Initialization scripts
+      - db-data:/opt/oracle/oradata # Persist database files
+      - ./db:/container-entrypoint-initdb.d # Initialization scripts
     healthcheck:
-      test: [
-        "CMD-SHELL",
-        "echo 'SELECT 1 FROM DUAL;' | sqlplus -S system/$$ORACLE_PASSWORD@//localhost:1521/FREEPDB1",
-      ]
+      test:
+        [
+          "CMD-SHELL",
+          "echo 'SELECT 1 FROM DUAL;' | sqlplus -S system/$$ORACLE_PASSWORD@//localhost:1521/FREEPDB1",
+        ]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -42,12 +43,12 @@ services:
 
   backend:
     container_name: backend
-    build: ./backend            # Dockerfile in backend/
+    build: ./backend # Dockerfile in backend/
     command: python /app/app.py # Launch Flask server
     volumes:
-      - ./backend:/app          # Mount code for live reload
+      - ./backend:/app # Mount code for live reload
     ports:
-      - "8000:8000"            # Expose Flask on host port 8000
+      - "8000:8000" # Expose Flask on host port 8000
     environment:
       ORACLE_HOST: "db"
       ORACLE_PORT: "1521"
@@ -61,6 +62,10 @@ services:
 volumes:
   db-data:
 ```
+
+**Component Diagram:**
+
+![HarvestIQ Component Architecture](architecture-design/images/component.png)
 
 ### Behind the Scenes
 
@@ -110,15 +115,23 @@ No external `.env` file is required—**all configurations** are declared direct
 After a minute:
 
 - **POST** to `http://localhost:8000/harvest` to add records.
-- **GET**  from `http://localhost:8000/harvests` to retrieve history.
+- **GET** from `http://localhost:8000/harvests` to retrieve history.
 
 ---
 
 ## API Endpoints
 
+**Use Case Diagram:**
+
+![HarvestIQ API Use Cases](architecture-design/images/use_case.png)
+
 ### 1. POST `/harvest`
 
 Registers a new harvest record.
+
+**Sequence Diagram (POST /harvest):**
+
+![Sequence Diagram for POST /harvest](architecture-design/images/sequence_post.png)
 
 **Request Body** (`application/json`):
 
@@ -163,6 +176,10 @@ Registers a new harvest record.
 ### 2. GET `/harvests`
 
 Retrieves all harvest records, sorted by most recent.
+
+**Sequence Diagram (GET /harvests):**
+
+![Sequence Diagram for GET /harvests](architecture-design/images/sequence_get.png)
 
 **Response** (`200 OK`):
 
@@ -217,5 +234,4 @@ All assignment criteria have been implemented and validated.
 
 Contributions are welcome! Please open issues or submit PRs. Preserve the original submission version after the deadline to avoid grade penalties.
 
-*© 2025 HarvestIQ Team*
-
+_© 2025 HarvestIQ Team_

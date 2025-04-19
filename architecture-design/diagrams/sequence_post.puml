@@ -1,0 +1,43 @@
+@startuml SequencePost
+' Sequence Diagram for POST /harvest Request
+
+actor Client
+participant "Backend (Flask API)" as Backend
+participant "Pydantic Validator" as Validator
+participant "Metrics Calculator" as Calculator
+participant "Insights Generator" as Insights
+participant "JSON File Storage" as JSONFile
+participant "Oracle Database" as DB
+
+Client -> Backend: POST /harvest\n(JSON Payload)
+activate Backend
+
+Backend -> Validator: Validate(Payload)
+activate Validator
+Validator --> Backend: Validated Data
+deactivate Validator
+
+Backend -> Calculator: calculate_metrics(Validated Data)
+activate Calculator
+Calculator --> Backend: Calculated KPIs\n(lost_tonnage, net_production, etc.)
+deactivate Calculator
+
+Backend -> Insights: generate_insights(Validated Data, KPIs)
+activate Insights
+Insights --> Backend: Alerts & Recommendations
+deactivate Insights
+
+Backend -> JSONFile: Append Record (with KPIs, Insights)
+activate JSONFile
+JSONFile --> Backend: Success/Failure
+deactivate JSONFile
+
+Backend -> DB: INSERT INTO harvest (...) VALUES (...)
+activate DB
+DB --> Backend: Success (Record ID)
+deactivate DB
+
+Backend --> Client: 201 Created\n{ "message": "..." }
+deactivate Backend
+
+@enduml

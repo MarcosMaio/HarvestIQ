@@ -1,0 +1,17 @@
+@startuml UseCase
+' Use Case Diagram for HarvestIQ Project
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Client" as client
+
+rectangle "HarvestIQ API System" {
+  usecase "Submit Harvest Data\n(POST /harvest)" as UC_Submit
+  usecase "Retrieve Harvest History\n(GET /harvests)" as UC_Retrieve
+}
+
+client --> UC_Submit
+client --> UC_Retrieve
+
+@enduml

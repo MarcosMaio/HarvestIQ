@@ -1,0 +1,19 @@
+@startuml SequenceGet
+' Sequence Diagram for GET /harvests Request
+
+actor Client
+participant "Backend (Flask API)" as Backend
+participant "Oracle Database" as DB
+
+Client -> Backend: GET /harvests
+activate Backend
+
+Backend -> DB: SELECT * FROM harvest\nORDER BY created_at DESC
+activate DB
+DB --> Backend: List of Harvest Records
+deactivate DB
+
+Backend --> Client: 200 OK\n(JSON Array of Records)
+deactivate Backend
+
+@enduml

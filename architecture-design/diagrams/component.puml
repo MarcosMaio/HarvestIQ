@@ -1,0 +1,42 @@
+@startuml Component Diagram - HarvestIQ
+' Component Diagram for HarvestIQ Project
+
+skinparam componentStyle uml2
+
+package "Docker Host" {
+  component "Backend Service (Flask)" as backend {
+    portout "REST API" as api_port
+  }
+  interface "REST API" as api_if
+
+  component "Oracle Database Service" as db {
+     portin "DB Port (1521)" as db_port
+  }
+  interface "SQL Interface" as sql_if
+
+  folder "Local Filesystem" as local_fs {
+    database "Local JSON Storage\n(harvest_history.json)" as json_storage 
+  }
+
+  cloud "External Client" as client
+}
+
+' Relationships
+api_port - api_if
+client -up-> api_if : Uses (HTTP)
+
+backend ..> sql_if : Uses (oracledb)
+sql_if - db_port
+
+' Notes
+note right of backend
+  Connects to 'db' service name.
+  Writes to/Reads from Local JSON Storage.
+end note
+
+note bottom of db
+  Persists data in volume 'db-data'
+  Initializes schema via scripts in './db'
+end note
+
+@enduml
