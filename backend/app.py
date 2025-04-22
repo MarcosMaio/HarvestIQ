@@ -1,12 +1,16 @@
-from typing import Optional
-import logging
 import datetime
+import logging
 import os
+from typing import Optional
+
 import oracledb
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
+from insights.__init__ import generate_advice
+from metrics import calculate_metrics
 from models import HarvestPayload
+from persistence.json_store import append_record_json
+from persistence.oracle_store import connect_oracle, insert_record_oracle
 from pydantic import ValidationError
-from utils import calculate_metrics, generate_advice, append_record_json, connect_oracle, insert_record_oracle
 
 app = Flask(__name__)
 
@@ -19,6 +23,7 @@ ORDER BY created_at DESC
 OFFSET :offset ROWS FETCH NEXT :limit ROWS ONLY
 """
 
+
 @app.route("/health", methods=["GET"])
 def health_check() -> tuple:
     """
@@ -29,8 +34,8 @@ def health_check() -> tuple:
     app.logger.info("Health check requested")
     db_status = "ok"
     try:
-        with connect_oracle() as conn:
-            pass
+        with connect_oracle() as _conn:
+            app.logger.debug("Oracle connection opened and will now be closed")
     except Exception as e:
         db_status = "unavailable"
         app.logger.error(f"Oracle DB health check failed: {str(e)}")
@@ -66,10 +71,7 @@ def harvest() -> tuple:
         try:
             valid = HarvestPayload(**payload)
         except ValidationError as e:
-            errors = {
-                ".".join(map(str, err["loc"])): err["msg"]
-                for err in e.errors()
-            }
+            errors = {".".join(map(str, err["loc"])): err["msg"] for err in e.errors()}
             return jsonify({"validation_errors": errors}), 422
 
         data = valid.model_dump()
@@ -90,20 +92,21 @@ def harvest() -> tuple:
             logging.error(f"Oracle DB Error: {db_err}")
             return jsonify({"error": "Failed to save to database."}), 500
 
-        return jsonify({
-            "message": "Harvest created successfully",
-            "harvest": data
-        }), 201
+        return (
+            jsonify({"message": "Harvest created successfully", "harvest": data}),
+            201,
+        )
 
     except (TypeError, KeyError) as e:
         logging.error(f"Bad Request Error: {e}")
         return jsonify({"error": "Invalid input data."}), 400
-    except Exception as e:
+    except Exception:
         logging.exception("Internal Server Error")
         return jsonify({"error": "An unexpected internal server error occurred."}), 500
     finally:
         if conn:
             conn.close()
+
 
 @app.route("/harvests", methods=["GET"])
 def get_harvests() -> tuple:
@@ -125,7 +128,11 @@ def get_harvests() -> tuple:
             columns = [col[0].lower() for col in cursor.description]
             result_list = [
                 {
-                    col: (val.isoformat() if isinstance(val, (datetime.date, datetime.datetime)) else val)
+                    col: (
+                        val.isoformat()
+                        if isinstance(val, (datetime.date, datetime.datetime))
+                        else val
+                    )
                     for col, val in zip(columns, row)
                 }
                 for row in cursor.fetchall()
@@ -141,6 +148,7 @@ def get_harvests() -> tuple:
         return jsonify({"error": "Server configuration error."}), 500
     except Exception as e:
         import traceback
+
         traceback.print_exc()
         logging.error(f"Unhandled exception on GET /harvests: {e}")
         return jsonify({"error": "An unexpected server error occurred."}), 500
